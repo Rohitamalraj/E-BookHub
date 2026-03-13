@@ -19,10 +19,22 @@ def _require_auth(request):
     return user, None
 
 
+def _require_customer(request):
+    user, err = _require_auth(request)
+    if err:
+        return None, err
+    if user.role == "admin":
+        return None, Response(
+            {"error": "Admin accounts cannot use customer purchase flows"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    return user, None
+
+
 class CartView(APIView):
 
     def get(self, request):
-        user, err = _require_auth(request)
+        user, err = _require_customer(request)
         if err:
             return err
         items = Cart.objects.filter(user=user).select_related("book")
@@ -32,7 +44,7 @@ class CartView(APIView):
 class LibraryView(APIView):
 
     def get(self, request):
-        user, err = _require_auth(request)
+        user, err = _require_customer(request)
         if err:
             return err
         owned = UserLibrary.objects.filter(user=user).select_related("book").order_by("-purchased_at")
@@ -42,7 +54,7 @@ class LibraryView(APIView):
 class CartAddView(APIView):
 
     def post(self, request):
-        user, err = _require_auth(request)
+        user, err = _require_customer(request)
         if err:
             return err
 
@@ -68,7 +80,7 @@ class CartAddView(APIView):
 class CartRemoveView(APIView):
 
     def post(self, request):
-        user, err = _require_auth(request)
+        user, err = _require_customer(request)
         if err:
             return err
 
@@ -83,7 +95,7 @@ class CartRemoveView(APIView):
 class CheckoutView(APIView):
 
     def post(self, request):
-        user, err = _require_auth(request)
+        user, err = _require_customer(request)
         if err:
             return err
 

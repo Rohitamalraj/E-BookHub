@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Trash2, ShoppingBag, BookOpen, ArrowLeft } from "lucide-react"
 import { LiquidButton } from "@/components/ui/liquid-glass-button"
-import { getCart, removeFromCart, checkout } from "@/lib/api"
+import { getCart, removeFromCart, checkout, getCurrentUser } from "@/lib/api"
 
 interface CartBook {
   id: string
@@ -35,6 +35,8 @@ export default function CartPage() {
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) { window.location.href = "/login"; return }
+    const user = getCurrentUser()
+    if (user?.role === "admin") { window.location.href = "/admin"; return }
 
     getCart()
       .then((data: CartItemResponse[]) => {

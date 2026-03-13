@@ -42,6 +42,10 @@ export default function LibraryPage() {
     }
 
     const user = getCurrentUser()
+    if (user?.role === "admin") {
+      window.location.href = "/admin"
+      return
+    }
     setDisplayName(user?.username || user?.email || "Reader")
 
     getLibrary()

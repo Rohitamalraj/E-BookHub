@@ -9,7 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-fallback-key-for-dev-only")
 DEBUG = os.getenv("DEBUG", "True") == "True"
-ALLOWED_HOSTS = ["*"]
+_hosts_env = os.getenv("ALLOWED_HOSTS", "*").strip()
+ALLOWED_HOSTS = ["*"] if _hosts_env == "*" else [h.strip() for h in _hosts_env.split(",") if h.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

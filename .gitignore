@@ -8,3 +8,5 @@ node_modules/
 .next/
 frontend/.env.local
 *.egg-info/
+DEVELOPMENT_ROADMAP.md
+.vscode/

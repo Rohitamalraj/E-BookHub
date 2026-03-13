@@ -78,6 +78,10 @@ export default function BooksPage() {
       window.location.href = "/login"
       return
     }
+    if (isAdmin) {
+      window.location.href = "/admin"
+      return
+    }
     try {
       await addToCart(bookId)
       setAddedIds((prev) => new Set(prev).add(bookId))
@@ -112,14 +116,16 @@ export default function BooksPage() {
                 {displayName}
               </span>
             )}
-            <a href="/cart" className="relative text-gray-700 hover:text-gray-900 transition-colors" aria-label="Cart">
-              <ShoppingCart size={22} />
-              {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 w-5 h-5 bg-gray-900 text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {cartCount}
-                </span>
-              )}
-            </a>
+            {!isAdmin && (
+              <a href="/cart" className="relative text-gray-700 hover:text-gray-900 transition-colors" aria-label="Cart">
+                <ShoppingCart size={22} />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-gray-900 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </a>
+            )}
             {isAuthed ? (
               <div className="flex items-center gap-2">
                 {isAdmin && (
@@ -258,14 +264,20 @@ export default function BooksPage() {
 
                   <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                     <span className="text-2xl font-black text-gray-900">${toPrice(book.price).toFixed(2)}</span>
-                    <LiquidButton
-                      size="sm"
-                      className="font-bold tracking-wide text-xs"
-                      onClick={() => handleAddToCart(book.id)}
-                      disabled={addedIds.has(book.id)}
-                    >
-                      {addedIds.has(book.id) ? "Added ✓" : "Add to Cart"}
-                    </LiquidButton>
+                    {isAdmin ? (
+                      <a href="/admin">
+                        <LiquidButton size="sm" className="font-bold tracking-wide text-xs">Manage</LiquidButton>
+                      </a>
+                    ) : (
+                      <LiquidButton
+                        size="sm"
+                        className="font-bold tracking-wide text-xs"
+                        onClick={() => handleAddToCart(book.id)}
+                        disabled={addedIds.has(book.id)}
+                      >
+                        {addedIds.has(book.id) ? "Added ✓" : "Add to Cart"}
+                      </LiquidButton>
+                    )}
                   </div>
                 </div>
               </motion.div>
