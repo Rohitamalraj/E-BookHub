@@ -51,7 +51,8 @@ const liquidbuttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-transparent hover:scale-105 duration-300 transition text-white",
+        default:
+          "bg-white/70 border border-gray-300 text-gray-900 hover:bg-white hover:border-gray-400 hover:scale-105 duration-300 transition dark:bg-white/10 dark:border-white/25 dark:text-white",
         destructive:
           "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",

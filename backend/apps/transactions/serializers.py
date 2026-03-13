@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from apps.books.serializers import EBookPublicSerializer
-from .models import Cart, Transaction, TransactionItem
+from .models import Cart, Transaction, TransactionItem, UserLibrary
 
 
 class CartSerializer(serializers.ModelSerializer):
@@ -26,3 +26,11 @@ class TransactionSerializer(serializers.ModelSerializer):
         model = Transaction
         fields = ["id", "total_amount", "payment_method", "status",
                   "transaction_date", "items"]
+
+
+class UserLibrarySerializer(serializers.ModelSerializer):
+    book = EBookPublicSerializer(read_only=True)
+
+    class Meta:
+        model = UserLibrary
+        fields = ["id", "book", "purchased_at"]

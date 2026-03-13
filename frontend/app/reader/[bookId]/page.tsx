@@ -1,31 +1,66 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { use, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { ArrowLeft, Lock, ChevronLeft, ChevronRight, BookOpen } from "lucide-react"
-import { getBookForReader } from "@/lib/api"
+import { getBookForReader, getCurrentUser, getReaderStreamUrl } from "@/lib/api"
 
 interface ReaderData {
   file_url?: string
   title?: string
   author?: string
+  page_count?: number
   error?: string
 }
 
-export default function ReaderPage({ params }: { params: { bookId: string } }) {
+export default function ReaderPage({ params }: { params: Promise<{ bookId: string }> }) {
+  const { bookId } = use(params)
   const [data, setData] = useState<ReaderData | null>(null)
+  const [streamUrl, setStreamUrl] = useState("")
+  const [watermarkText, setWatermarkText] = useState("Protected")
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
+
+  const pageCount = Math.max(1, Number(data?.page_count || 1))
+  const title = data?.title ?? "Your Book"
+  const author = data?.author ?? ""
+  const baseReaderSrc = streamUrl || data?.file_url || ""
+
+  const blockNativePdfScroll: React.WheelEventHandler<HTMLDivElement> = (e) => {
+    e.preventDefault()
+  }
 
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) { window.location.href = "/login"; return }
 
-    getBookForReader(params.bookId)
+    const user = getCurrentUser()
+    const idText = user?.email || user?.username || "Authorized User"
+    setWatermarkText(`${idText} • ${new Date().toLocaleString()}`)
+    setStreamUrl(getReaderStreamUrl(bookId))
+
+    getBookForReader(bookId)
       .then((res: ReaderData) => setData(res))
       .catch(() => setData({ error: "Failed to load book. Please try again." }))
       .finally(() => setIsLoading(false))
-  }, [params.bookId])
+  }, [bookId])
+
+  useEffect(() => {
+    const onContextMenu = (e: MouseEvent) => e.preventDefault()
+    const onKeyDown = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase()
+      if ((e.ctrlKey || e.metaKey) && (key === "s" || key === "p")) {
+        e.preventDefault()
+      }
+    }
+
+    window.addEventListener("contextmenu", onContextMenu)
+    window.addEventListener("keydown", onKeyDown)
+    return () => {
+      window.removeEventListener("contextmenu", onContextMenu)
+      window.removeEventListener("keydown", onKeyDown)
+    }
+  }, [])
 
   if (isLoading) {
     return (
@@ -39,7 +74,7 @@ export default function ReaderPage({ params }: { params: { bookId: string } }) {
     )
   }
 
-  if (data?.error || !data?.file_url) {
+  if (data?.error) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">
         <motion.div
@@ -72,7 +107,7 @@ export default function ReaderPage({ params }: { params: { bookId: string } }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col">
+    <div className="min-h-screen bg-gray-950 flex flex-col select-none">
       {/* Reader Toolbar */}
       <nav className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between shrink-0">
         <a
@@ -86,15 +121,18 @@ export default function ReaderPage({ params }: { params: { bookId: string } }) {
           <BookOpen size={18} className="text-gray-400" />
           <div className="text-center">
             <p className="text-white font-bold text-sm leading-none">
-              {data.title ?? "Your Book"}
+              {title}
             </p>
-            {data.author && (
-              <p className="text-gray-400 text-xs mt-0.5">{data.author}</p>
+            {author && (
+              <p className="text-gray-400 text-xs mt-0.5">{author}</p>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <a href="/library" className="text-gray-400 hover:text-white font-medium text-xs tracking-wide">
+            MY LIBRARY
+          </a>
           <Lock size={14} className="text-green-500" />
           <span className="text-green-500 text-xs font-bold tracking-wide">SECURE VIEW</span>
         </div>
@@ -108,11 +146,35 @@ export default function ReaderPage({ params }: { params: { bookId: string } }) {
           transition={{ duration: 0.5 }}
           className="flex-1 relative"
         >
+          {/* Watermark overlay deters redistribution screenshots */}
+          <div className="pointer-events-none absolute inset-0 z-10 overflow-hidden opacity-25">
+            {Array.from({ length: 18 }).map((_, i) => (
+              <span
+                key={i}
+                className="absolute text-white/30 text-xs font-semibold tracking-wide"
+                style={{
+                  left: `${(i % 6) * 18 + 4}%`,
+                  top: `${Math.floor(i / 6) * 30 + 8}%`,
+                  transform: "rotate(-24deg)",
+                }}
+              >
+                {watermarkText}
+              </span>
+            ))}
+          </div>
           <iframe
-            src={`${data.file_url}#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0`}
-            title={data.title ?? "E-Book Reader"}
+            key={`reader-${bookId}-page-${currentPage}`}
+            src={`${baseReaderSrc}#page=${currentPage}&view=Fit&toolbar=0&navpanes=0&scrollbar=0&pagemode=none`}
+            title={title}
             className="w-full h-full min-h-[calc(100vh-120px)]"
-            style={{ background: "#1a1a2e" }}
+            style={{ background: "#020617" }}
+          />
+          {/* Capture wheel/touch interactions so only Prev/Next changes pages */}
+          <div
+            className="absolute inset-0 z-20"
+            onWheel={blockNativePdfScroll}
+            onTouchMove={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
           />
         </motion.div>
 
@@ -126,11 +188,12 @@ export default function ReaderPage({ params }: { params: { bookId: string } }) {
             <ChevronLeft size={18} /> Previous
           </button>
 
-          <span className="text-gray-400 font-medium text-sm">Page {currentPage}</span>
+          <span className="text-gray-400 font-medium text-sm">Page {currentPage} / {pageCount}</span>
 
           <button
-            onClick={() => setCurrentPage((p) => p + 1)}
-            className="flex items-center gap-1 text-gray-400 hover:text-white font-medium transition-colors text-sm"
+            onClick={() => setCurrentPage((p) => Math.min(pageCount, p + 1))}
+            disabled={currentPage >= pageCount}
+            className="flex items-center gap-1 text-gray-400 hover:text-white disabled:opacity-30 font-medium transition-colors text-sm"
           >
             Next <ChevronRight size={18} />
           </button>

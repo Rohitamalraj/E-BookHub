@@ -16,7 +16,17 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+            payload = {
+                "user_id": user.id,
+                "username": user.username,
+                "role": user.role,
+                "exp": datetime.now(tz=timezone.utc) + timedelta(days=7),
+            }
+            token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+            return Response(
+                {"token": token, "user": UserSerializer(user).data},
+                status=status.HTTP_201_CREATED,
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

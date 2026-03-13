@@ -96,6 +96,13 @@ _cors_env = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(",")]
 CORS_ALLOW_CREDENTIALS = True
 
+# Supabase Storage (used for deployed media persistence)
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+SUPABASE_STORAGE_COVER_BUCKET = os.getenv("SUPABASE_STORAGE_COVER_BUCKET", "ebook-covers")
+SUPABASE_STORAGE_PDF_BUCKET = os.getenv("SUPABASE_STORAGE_PDF_BUCKET", "ebook-pdfs")
+SUPABASE_SIGNED_URL_EXPIRES_IN = int(os.getenv("SUPABASE_SIGNED_URL_EXPIRES_IN", "3600"))
+
 # DRF — no global auth class; JWT is handled manually per-view
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [],

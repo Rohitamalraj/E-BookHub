@@ -14,35 +14,65 @@ interface CartBook {
   cover_image: string
 }
 
+const toPrice = (value: unknown): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+interface CartItemResponse {
+  id: string
+  book: CartBook
+}
+
 export default function CartPage() {
   const [items, setItems] = useState<CartBook[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isCheckingOut, setIsCheckingOut] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [purchasedBookIds, setPurchasedBookIds] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem("token")
     if (!token) { window.location.href = "/login"; return }
 
     getCart()
-      .then((data) => { if (Array.isArray(data)) setItems(data) })
-      .catch(() => {/* show empty cart */})
+      .then((data: CartItemResponse[]) => {
+        if (Array.isArray(data)) {
+          setItems(data.map((item) => item.book).filter(Boolean))
+        }
+      })
+      .catch((err: any) => { setError(err?.message ?? "Failed to load cart.") })
       .finally(() => setIsLoading(false))
   }, [])
 
   const handleRemove = async (bookId: string) => {
-    await removeFromCart(bookId)
-    setItems((prev) => prev.filter((b) => b.id !== bookId))
+    try {
+      await removeFromCart(bookId)
+      setItems((prev) => prev.filter((b) => b.id !== bookId))
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to remove item.")
+    }
   }
 
-  const total = items.reduce((sum, b) => sum + b.price, 0)
+  const total = items.reduce((sum, b) => sum + toPrice(b.price), 0)
 
   const handleCheckout = async () => {
     setIsCheckingOut(true)
-    await checkout(items.map((b) => b.id), "card")
-    setSuccess(true)
-    setItems([])
-    setIsCheckingOut(false)
+    setError(null)
+    try {
+      const result = await checkout(items.map((b) => b.id), "card")
+      const ids = Array.isArray(result?.purchased_book_ids)
+        ? result.purchased_book_ids.map((id: unknown) => String(id))
+        : []
+      setPurchasedBookIds(ids)
+      setSuccess(true)
+      setItems([])
+    } catch (err: any) {
+      setError(err?.message ?? "Checkout failed. Please try again.")
+    } finally {
+      setIsCheckingOut(false)
+    }
   }
 
   if (isLoading) {
@@ -63,9 +93,14 @@ export default function CartPage() {
       <nav className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-gray-200">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
           <a href="/" className="text-xl font-black tracking-wider text-gray-900">E-BOOKSHUB</a>
-          <a href="/books" className="flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium transition-colors">
-            <ArrowLeft size={16} /> Back to Browse
-          </a>
+          <div className="flex items-center gap-5">
+            <a href="/library" className="text-gray-700 hover:text-gray-900 font-medium transition-colors text-sm">
+              My Library
+            </a>
+            <a href="/books" className="flex items-center gap-2 text-gray-700 hover:text-gray-900 font-medium transition-colors">
+              <ArrowLeft size={16} /> Back to Browse
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -88,9 +123,28 @@ export default function CartPage() {
               >
                 🎉 Purchase successful! Your books are now in your library.{" "}
                 <a href="/books" className="underline underline-offset-4">Keep browsing</a>
+                {purchasedBookIds.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                    {purchasedBookIds.map((id) => (
+                      <a
+                        key={id}
+                        href={`/reader/${id}`}
+                        className="px-3 py-1.5 bg-white text-gray-900 rounded-md text-xs font-bold tracking-wide"
+                      >
+                        READ NOW
+                      </a>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
+
+          {error && (
+            <div className="mb-8 px-6 py-4 border-2 border-red-200 bg-red-50 text-red-700 rounded-md font-medium text-sm">
+              {error}
+            </div>
+          )}
 
           {items.length === 0 && !success ? (
             <div className="text-center py-32">
@@ -129,7 +183,7 @@ export default function CartPage() {
                           <p className="text-gray-600 font-medium text-sm mt-1">{book.author}</p>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-2xl font-black text-gray-900">${book.price.toFixed(2)}</span>
+                          <span className="text-2xl font-black text-gray-900">${toPrice(book.price).toFixed(2)}</span>
                           <button
                             onClick={() => handleRemove(book.id)}
                             className="flex items-center gap-2 text-sm text-gray-500 hover:text-red-600 font-medium transition-colors"
@@ -158,7 +212,7 @@ export default function CartPage() {
                     {items.map((b) => (
                       <div key={b.id} className="flex justify-between text-sm">
                         <span className="text-gray-600 font-medium line-clamp-1 flex-1 mr-4">{b.title}</span>
-                        <span className="font-bold text-gray-900 shrink-0">${b.price.toFixed(2)}</span>
+                        <span className="font-bold text-gray-900 shrink-0">${toPrice(b.price).toFixed(2)}</span>
                       </div>
                     ))}
                   </div>

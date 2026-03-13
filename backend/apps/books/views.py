@@ -1,6 +1,3 @@
-import uuid
-
-from django.core.files.storage import default_storage
 from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -9,16 +6,7 @@ from rest_framework import status
 from apps.users.authentication import JWTAuthentication
 from .models import EBook
 from .serializers import EBookSerializer, EBookPublicSerializer
-
-
-def _save_upload(file, subfolder: str) -> str:
-    """Save an uploaded file to MEDIA_ROOT/<subfolder>/ and return its media URL."""
-    ext = file.name.rsplit(".", 1)[-1] if "." in file.name else "bin"
-    filename = f"{subfolder}/{uuid.uuid4().hex}.{ext}"
-    path = default_storage.save(filename, file)
-    # Build an absolute-ish URL that Django's dev server can serve
-    from django.conf import settings
-    return f"{settings.MEDIA_URL}{path}"
+from .storage import save_cover_image, save_pdf_file
 
 
 def _require_admin(request):
@@ -66,12 +54,12 @@ class BookListView(APIView):
         }
 
         cover_file = request.FILES.get("cover_image")
-        pdf_file = request.FILES.get("pdf_file")
+        pdf_file = request.FILES.get("pdf_file") or request.FILES.get("file_url")
 
         if cover_file:
-            data["cover_image"] = _save_upload(cover_file, "covers")
+            data["cover_image"] = save_cover_image(cover_file)
         if pdf_file:
-            data["file_url"] = _save_upload(pdf_file, "pdfs")
+            data["file_url"] = save_pdf_file(pdf_file)
 
         serializer = EBookSerializer(data=data)
         if serializer.is_valid():
@@ -121,12 +109,12 @@ class BookDetailView(APIView):
         }
 
         cover_file = request.FILES.get("cover_image")
-        pdf_file = request.FILES.get("pdf_file")
+        pdf_file = request.FILES.get("pdf_file") or request.FILES.get("file_url")
 
         if cover_file:
-            data["cover_image"] = _save_upload(cover_file, "covers")
+            data["cover_image"] = save_cover_image(cover_file)
         if pdf_file:
-            data["file_url"] = _save_upload(pdf_file, "pdfs")
+            data["file_url"] = save_pdf_file(pdf_file)
 
         serializer = EBookSerializer(book, data=data, partial=True)
         if serializer.is_valid():

@@ -18,6 +18,11 @@ interface Book {
   file_url: string
 }
 
+const toPrice = (value: unknown): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 const emptyForm = { title: "", author: "", isbn: "", genre: "", price: "", description: "" }
 
 export default function AdminPage() {
@@ -30,6 +35,7 @@ export default function AdminPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const user = localStorage.getItem("user")
@@ -69,10 +75,11 @@ export default function AdminPage() {
   const handleSave = async (e: FormEvent) => {
     e.preventDefault()
     setIsSaving(true)
+    setError(null)
     const fd = new FormData()
     Object.entries(form).forEach(([k, v]) => fd.append(k, v))
     if (coverFile) fd.append("cover_image", coverFile)
-    if (pdfFile) fd.append("file_url", pdfFile)
+    if (pdfFile) fd.append("pdf_file", pdfFile)
 
     try {
       if (editingBook) {
@@ -83,8 +90,8 @@ export default function AdminPage() {
         setBooks((prev) => [created, ...prev])
       }
       setShowModal(false)
-    } catch {
-      /* handle silently - backend not connected yet */
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to save book")
     } finally {
       setIsSaving(false)
     }
@@ -93,9 +100,15 @@ export default function AdminPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this book?")) return
     setDeletingId(id)
-    await deleteBook(id)
-    setBooks((prev) => prev.filter((b) => b.id !== id))
-    setDeletingId(null)
+    setError(null)
+    try {
+      await deleteBook(id)
+      setBooks((prev) => prev.filter((b) => b.id !== id))
+    } catch (err: any) {
+      setError(err?.message ?? "Failed to delete book")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const handleLogout = () => {
@@ -156,6 +169,12 @@ export default function AdminPage() {
           </LiquidButton>
         </div>
 
+        {error && (
+          <div className="mb-8 px-4 py-3 border-2 border-red-200 bg-red-50 text-red-700 rounded-md font-medium text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -166,7 +185,12 @@ export default function AdminPage() {
           {[
             { label: "Total Books", value: books.length },
             { label: "Genres", value: new Set(books.map((b) => b.genre)).size },
-            { label: "Avg Price", value: books.length ? `$${(books.reduce((s, b) => s + b.price, 0) / books.length).toFixed(2)}` : "—" },
+            {
+              label: "Avg Price",
+              value: books.length
+                ? `$${(books.reduce((s, b) => s + toPrice(b.price), 0) / books.length).toFixed(2)}`
+                : "—",
+            },
             { label: "Status", value: "Live" },
           ].map((stat) => (
             <div key={stat.label} className="border-2 border-gray-200 rounded-xl p-5">
@@ -223,7 +247,7 @@ export default function AdminPage() {
                       <td className="px-5 py-4">
                         <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full">{book.genre}</span>
                       </td>
-                      <td className="px-5 py-4 font-black text-gray-900">${book.price.toFixed(2)}</td>
+                      <td className="px-5 py-4 font-black text-gray-900">${toPrice(book.price).toFixed(2)}</td>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <button

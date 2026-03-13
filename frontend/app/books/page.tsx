@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
 import { Search, ShoppingCart, Star, Filter, BookOpen } from "lucide-react"
 import { LiquidButton } from "@/components/ui/liquid-glass-button"
-import { getBooks, addToCart } from "@/lib/api"
+import { getBooks, addToCart, getCart, getCurrentUser, logout } from "@/lib/api"
 
 interface Book {
   id: string
@@ -16,31 +16,52 @@ interface Book {
   cover_image: string
 }
 
+const toPrice = (value: unknown): number => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 const GENRES = ["All", "Fiction", "Non-Fiction", "Science", "History", "Self-Help", "Technology", "Romance", "Mystery"]
 
-// Placeholder books shown before the backend is connected
-const PLACEHOLDER_BOOKS: Book[] = [
-  { id: "1", title: "The Pragmatic Programmer", author: "David Thomas", genre: "Technology", price: 12.99, description: "Your journey to mastery.", cover_image: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80" },
-  { id: "2", title: "Atomic Habits", author: "James Clear", genre: "Self-Help", price: 9.99, description: "Tiny changes, remarkable results.", cover_image: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80" },
-  { id: "3", title: "Sapiens", author: "Yuval Noah Harari", genre: "History", price: 11.99, description: "A brief history of humankind.", cover_image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&q=80" },
-  { id: "4", title: "Dune", author: "Frank Herbert", genre: "Fiction", price: 8.99, description: "The epic science fiction saga.", cover_image: "https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400&q=80" },
-  { id: "5", title: "A Brief History of Time", author: "Stephen Hawking", genre: "Science", price: 10.99, description: "From the Big Bang to Black Holes.", cover_image: "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=400&q=80" },
-  { id: "6", title: "The Great Gatsby", author: "F. Scott Fitzgerald", genre: "Fiction", price: 5.99, description: "The American dream laid bare.", cover_image: "https://images.unsplash.com/photo-1550399105-c4db5fb85c18?w=400&q=80" },
-  { id: "7", title: "Deep Work", author: "Cal Newport", genre: "Self-Help", price: 9.49, description: "Rules for focused success.", cover_image: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&q=80" },
-  { id: "8", title: "Educated", author: "Tara Westover", genre: "Non-Fiction", price: 11.49, description: "A memoir of self-discovery.", cover_image: "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=400&q=80" },
-]
-
 export default function BooksPage() {
-  const [books, setBooks] = useState<Book[]>(PLACEHOLDER_BOOKS)
+  const [books, setBooks] = useState<Book[]>([])
   const [query, setQuery] = useState("")
   const [selectedGenre, setSelectedGenre] = useState("All")
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [cartCount, setCartCount] = useState(0)
+  const [isAuthed, setIsAuthed] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [displayName, setDisplayName] = useState("Guest")
 
   useEffect(() => {
     getBooks()
-      .then((data: Book[]) => { if (Array.isArray(data) && data.length > 0) setBooks(data) })
-      .catch(() => {/* keep placeholder data */})
+      .then((data: Book[]) => { if (Array.isArray(data)) setBooks(data) })
+      .catch(() => setBooks([]))
+  }, [])
+
+  useEffect(() => {
+    const token = localStorage.getItem("token")
+    setIsAuthed(Boolean(token))
+
+    const user = getCurrentUser()
+    setIsAdmin(user?.role === "admin")
+    setDisplayName(user?.username || user?.email || "Guest")
+
+    if (token) {
+      getCart()
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setCartCount(data.length)
+            setAddedIds(new Set(data.map((item: any) => String(item?.book?.id ?? "")).filter(Boolean)))
+          }
+        })
+        .catch(() => {
+          setCartCount(0)
+        })
+    } else {
+      setCartCount(0)
+      setAddedIds(new Set())
+    }
   }, [])
 
   const filtered = books.filter((b) => {
@@ -57,9 +78,18 @@ export default function BooksPage() {
       window.location.href = "/login"
       return
     }
-    await addToCart(bookId)
-    setAddedIds((prev) => new Set(prev).add(bookId))
-    setCartCount((c) => c + 1)
+    try {
+      await addToCart(bookId)
+      setAddedIds((prev) => new Set(prev).add(bookId))
+      setCartCount((c) => c + 1)
+    } catch {
+      // Keep UI unchanged when API rejects duplicate/already-owned additions
+    }
+  }, [])
+
+  const handleLogout = useCallback(() => {
+    logout()
+    window.location.href = "/login"
   }, [])
 
   return (
@@ -71,10 +101,17 @@ export default function BooksPage() {
 
           <div className="hidden md:flex items-center gap-8">
             <a href="/books" className="font-medium text-gray-900 border-b-2 border-gray-900 pb-0.5">Browse</a>
-            <a href="#" className="font-medium text-gray-600 hover:text-gray-900 transition-colors">About</a>
+            {isAuthed && (
+              <a href="/library" className="font-medium text-gray-600 hover:text-gray-900 transition-colors">My Library</a>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
+            {isAuthed && (
+              <span className="hidden lg:inline-flex px-3 py-1 bg-gray-100 text-gray-700 text-xs font-bold rounded-full tracking-wide">
+                {displayName}
+              </span>
+            )}
             <a href="/cart" className="relative text-gray-700 hover:text-gray-900 transition-colors" aria-label="Cart">
               <ShoppingCart size={22} />
               {cartCount > 0 && (
@@ -83,9 +120,20 @@ export default function BooksPage() {
                 </span>
               )}
             </a>
-            <a href="/login">
-              <LiquidButton size="sm" className="font-bold tracking-wide">Sign In</LiquidButton>
-            </a>
+            {isAuthed ? (
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <a href="/admin">
+                    <LiquidButton size="sm" className="font-bold tracking-wide">Admin</LiquidButton>
+                  </a>
+                )}
+                <LiquidButton size="sm" className="font-bold tracking-wide" onClick={handleLogout}>Logout</LiquidButton>
+              </div>
+            ) : (
+              <a href="/login">
+                <LiquidButton size="sm" className="font-bold tracking-wide">Sign In</LiquidButton>
+              </a>
+            )}
           </div>
         </div>
       </nav>
@@ -158,7 +206,11 @@ export default function BooksPage() {
           <div className="text-center py-24">
             <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
             <p className="text-2xl font-black tracking-wider text-gray-400">NO BOOKS FOUND</p>
-            <p className="text-gray-500 mt-2">Try a different search or genre filter.</p>
+            <p className="text-gray-500 mt-2">
+              {books.length === 0
+                ? "No books have been published yet. Add books from the admin panel."
+                : "Try a different search or genre filter."}
+            </p>
           </div>
         ) : (
           <motion.div
@@ -205,7 +257,7 @@ export default function BooksPage() {
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                    <span className="text-2xl font-black text-gray-900">${book.price.toFixed(2)}</span>
+                    <span className="text-2xl font-black text-gray-900">${toPrice(book.price).toFixed(2)}</span>
                     <LiquidButton
                       size="sm"
                       className="font-bold tracking-wide text-xs"

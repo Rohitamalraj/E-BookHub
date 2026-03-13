@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, BookOpen } from "lucide-react"
 import { LiquidButton } from "@/components/ui/liquid-glass-button"
-import { register } from "@/lib/api"
+import { register, isAuthenticated } from "@/lib/api"
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("")
@@ -14,6 +14,30 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isAuthenticated()) {
+      window.location.href = "/books"
+    }
+  }, [])
+
+  const getErrorMessage = (data: any): string => {
+    if (!data) return "Registration failed. Please try again."
+    if (typeof data.error === "string") return data.error
+    if (typeof data.detail === "string") return data.detail
+
+    const firstField = Object.keys(data)[0]
+    const firstValue = firstField ? data[firstField] : null
+
+    if (Array.isArray(firstValue) && firstValue.length > 0) {
+      return String(firstValue[0])
+    }
+    if (typeof firstValue === "string") {
+      return firstValue
+    }
+
+    return "Registration failed. Please try again."
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -30,10 +54,10 @@ export default function RegisterPage() {
         localStorage.setItem("user", JSON.stringify(data.user))
         window.location.href = "/books"
       } else {
-        setError(data.error ?? "Registration failed. Please try again.")
+        setError(getErrorMessage(data))
       }
-    } catch {
-      setError("Something went wrong. Please try again.")
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -170,9 +194,7 @@ export default function RegisterPage() {
           </form>
 
           <p className="mt-8 text-center text-sm text-gray-500">
-            By registering you agree to our{" "}
-            <a href="#" className="underline underline-offset-4 hover:text-gray-900">Terms of Service</a> and{" "}
-            <a href="#" className="underline underline-offset-4 hover:text-gray-900">Privacy Policy</a>.
+            By registering you agree to our Terms of Service and Privacy Policy.
           </p>
         </motion.div>
       </div>
