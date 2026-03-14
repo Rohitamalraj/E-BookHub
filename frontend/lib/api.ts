@@ -1,5 +1,7 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api"
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "https://e-bookhub.onrender.com/api"
 const API_ORIGIN = BASE_URL.replace(/\/api\/?$/, "")
+const DISPLAY_API_ORIGIN = API_ORIGIN || "configured API endpoint"
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null
@@ -94,7 +96,7 @@ function firstErrorMessage(data: any, fallback: string): string {
 function asApiError(err: unknown, fallback: string): Error {
   if (err instanceof Error) {
     if (err.message === "Failed to fetch") {
-      return new Error("Cannot reach server. Please ensure backend is running on http://localhost:8000.")
+      return new Error(`Cannot reach server. Please ensure backend is reachable at ${DISPLAY_API_ORIGIN}.`)
     }
     return err
   }
