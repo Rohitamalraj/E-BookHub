@@ -92,10 +92,20 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CORS — allow the Next.js frontend
-_cors_env = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
-CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(",")]
+# CORS/CSRF — allow the Next.js frontend in local and production
+_default_frontend_origins = ",".join(
+    [
+        "http://localhost:3000",
+        "https://e-book-hub.vercel.app",
+        "https://e-bookhub.vercel.app",
+    ]
+)
+_cors_env = os.getenv("CORS_ALLOWED_ORIGINS", _default_frontend_origins)
+CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
+
+_csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", _cors_env)
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(",") if o.strip()]
 
 # Supabase Storage (used for deployed media persistence)
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
