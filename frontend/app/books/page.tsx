@@ -61,13 +61,13 @@ export default function BooksPage() {
 
   useEffect(() => {
     const token = localStorage.getItem("token")
-    setIsAuthed(Boolean(token))
+    const authed = Boolean(token)
+    setIsAuthed(authed)
 
-    const user = getCurrentUser()
-    setIsAdmin(user?.role === "admin")
-    setDisplayName(user?.username || user?.email || "Guest")
-
-    if (token) {
+    if (authed) {
+      const user = getCurrentUser()
+      setIsAdmin(user?.role === "admin")
+      setDisplayName(user?.username || user?.email || "Guest")
       getCart()
         .then((data) => {
           if (Array.isArray(data)) {
@@ -79,6 +79,8 @@ export default function BooksPage() {
           setCartCount(0)
         })
     } else {
+      setIsAdmin(false)
+      setDisplayName("Guest")
       setCartCount(0)
       setAddedIds(new Set())
     }
@@ -96,7 +98,8 @@ export default function BooksPage() {
   const handleAddToCart = useCallback(async (bookId: string) => {
     const token = localStorage.getItem("token")
     if (!token) {
-      window.location.href = "/login"
+      const goToLogin = window.confirm("Please login to add books to cart. Click OK for Login or Cancel for Sign Up.")
+      window.location.href = goToLogin ? "/login" : "/register"
       return
     }
     if (isAdmin) {
