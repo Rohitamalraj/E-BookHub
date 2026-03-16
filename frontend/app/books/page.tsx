@@ -21,6 +21,26 @@ const toPrice = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+const normalizeGenre = (value: string): string =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "")
+
+const GENRE_ALIASES: Record<string, string> = {
+  friction: "fiction",
+  frictin: "fiction",
+  ficton: "fiction",
+  ficiton: "fiction",
+  nonficton: "nonfiction",
+  nonfition: "nonfiction",
+}
+
+const canonicalGenre = (value: string): string => {
+  const normalized = normalizeGenre(value)
+  return GENRE_ALIASES[normalized] ?? normalized
+}
+
 const GENRES = ["All", "Fiction", "Non-Fiction", "Science", "History", "Self-Help", "Technology", "Romance", "Mystery"]
 
 export default function BooksPage() {
@@ -68,7 +88,8 @@ export default function BooksPage() {
     const matchesQuery =
       b.title.toLowerCase().includes(query.toLowerCase()) ||
       b.author.toLowerCase().includes(query.toLowerCase())
-    const matchesGenre = selectedGenre === "All" || b.genre === selectedGenre
+    const matchesGenre =
+      selectedGenre === "All" || canonicalGenre(String(b.genre ?? "")) === canonicalGenre(selectedGenre)
     return matchesQuery && matchesGenre
   })
 
