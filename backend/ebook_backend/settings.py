@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+import re
 from dotenv import load_dotenv
 
 # Explicitly load .env from the project root (same dir as manage.py)
@@ -98,14 +99,30 @@ _default_frontend_origins = ",".join(
         "http://localhost:3000",
         "https://e-book-hub.vercel.app",
         "https://e-bookhub.vercel.app",
+        "https://main.dnd27rvqovdn2.amplifyapp.com",
     ]
 )
 _cors_env = os.getenv("CORS_ALLOWED_ORIGINS", _default_frontend_origins)
 CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(",") if o.strip()]
+
+# Optional regex support for preview branches on Amplify.
+_cors_regex_env = os.getenv("CORS_ALLOWED_ORIGIN_REGEXES", "")
+CORS_ALLOWED_ORIGIN_REGEXES = [o.strip() for o in _cors_regex_env.split(",") if o.strip()]
+
+_amplify_app_id = os.getenv("AMPLIFY_APP_ID", "").strip()
+if _amplify_app_id:
+    amplify_regex = rf"^https://[a-z0-9-]+\.{re.escape(_amplify_app_id)}\.amplifyapp\.com$"
+    if amplify_regex not in CORS_ALLOWED_ORIGIN_REGEXES:
+        CORS_ALLOWED_ORIGIN_REGEXES.append(amplify_regex)
+
 CORS_ALLOW_CREDENTIALS = True
 
 _csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", _cors_env)
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(",") if o.strip()]
+if _amplify_app_id:
+    amplify_csrf = f"https://*.{_amplify_app_id}.amplifyapp.com"
+    if amplify_csrf not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(amplify_csrf)
 
 # Supabase Storage (used for deployed media persistence)
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
